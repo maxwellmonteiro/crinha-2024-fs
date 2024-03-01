@@ -30,6 +30,14 @@ void timeval_print(struct timeval *tv) {
     printf(" = %s.%06ld\n", buffer, tv->tv_usec);
 }
 
+bool is_main_process() {
+    char *var = env_util_get(ENV_MAIN);
+    if (var != NULL) {
+        return atoi(var) == 1;
+    }
+    return false;
+}
+
 void timeval_print_elapsed_if_greater(struct timeval *tv_begin, struct timeval *tv_end,  time_t seconds, suseconds_t micro_seconds, char *suffix) {
     struct timeval tv_diff;
     timeval_subtract(&tv_diff, tv_end, tv_begin);

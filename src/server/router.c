@@ -23,15 +23,6 @@ bool router_add_route(Route *route) {
     return false;
 }
 
-// bool router_compile_matcher(Route *route) {
-//     int status = regcomp(route->matcher, route->url, REG_EXTENDED);
-//     if (status) {
-//         log_error("Falha ao compilar regex (%s)", strerror(errno));
-//         return false;
-//     }
-//     return true;
-// }
-
 bool router_match_url(const char *url, const char *request_url) {
     int status;
     regex_t regex;

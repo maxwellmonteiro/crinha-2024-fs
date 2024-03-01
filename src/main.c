@@ -17,9 +17,15 @@ int main(int argc, char **argv) {
     log_set_level(LOG_INFO);
 
     fs_init_pool();
-    
+
     cliente_service_init();
     transacao_service_init();
+
+    cliente_service_shared_mem_init();
+    transacao_service_shared_mem_init();
+
+    cliente_inserir_saldos();
+
     cliente_controller_init();
 
     server_init(atoi(env_util_get(ENV_PORT)));

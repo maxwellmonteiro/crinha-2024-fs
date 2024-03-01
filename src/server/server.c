@@ -2,6 +2,7 @@
 #include "http_parser.h"
 #include "router.h"
 #include "../util/log.h"
+#include "../util/env_util.h"
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -105,6 +106,7 @@ void socket_read(int sd, llhttp_t *parser) {
             char *body = ((HttpRequest *)parser->data)->body;
             response = router_route(method, url, body);
             send(sd, response, strlen(response), 0);
+            FREE(response);
             http_parser_reset_request(parser);
         } else {
             log_error("Falha no parse do request http (%s)", buffer);

@@ -9,6 +9,7 @@ services:
     command: ./rinha
     environment:
       PORT: 8080
+      MAIN: 1
     expose:
       - 8080
     network_mode: "host"    
@@ -16,13 +17,14 @@ services:
       resources:
         limits:
           cpus: '0.75'
-          memory: '6MB'
+          memory: '32MB'
 
   api02:
     <<: *api
     hostname: api02
     environment:
       PORT: 8081
+      MAIN: 0
     expose:
       - 8081   
          

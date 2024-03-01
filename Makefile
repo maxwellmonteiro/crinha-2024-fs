@@ -4,7 +4,7 @@ INCLUDEDIR = ./include
 LIBDIR = ./lib
 CFLAGS_DEBUG = -g -Wl,-rpath -Wl,$(LIBDIR)
 CFLAGS_RELEASE = -pipe -Wrestrict -Wall -O3 -Wl,-rpath -static -Wl,$(LIBDIR)
-CFLAGS = $(CFLAGS_DEBUG)
+CFLAGS = $(CFLAGS_RELEASE)
 
 all: rinha
 

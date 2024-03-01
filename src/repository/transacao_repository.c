@@ -31,19 +31,26 @@ void transacao_repo_clear_if_none(size_t n_read, TransacaoList *transacoes) {
     }
 }
 
+bool is_limite_excedido(Cliente *cliente, Transacao *transacao) {
+    if (transacao->tipo[0] == 'c') {
+        return false;
+    } else if ((cliente->saldo - transacao->valor) < -cliente->limite) {
+        return true;
+    }
+    return false;
+}
+
 TransacaoList transacao_repo_find_last_10(uint32_t id_cliente) {
     TransacaoList transacoes = { 0, NULL };
     char file_name[MAX_FILE_NAME];
 
     sprintf(file_name, TRANSACAO_FILE_NAME_TEMPLATE, id_cliente);
 
-    // FILE *file = fopen(file_name, FS_READ);
     File *file = fs_get_file(file_name);
 
     fs_return_on_open_fail(file, file_name, transacoes);
 
-    fseek(file->file, 0, SEEK_END);
-    size_t size = ftell(file->file);
+    size_t size = fs_seek_end(file);
     long start = size - sizeof(Transacao) * LAST_10;
     start = start < 0 ? 0 : start;
 
@@ -54,15 +61,14 @@ TransacaoList transacao_repo_find_last_10(uint32_t id_cliente) {
         transacoes.values = malloc(sizeof(Transacao) * actual_count);
         transacoes.size = actual_count;
 
-        fseek(file->file, start, SEEK_SET);
-        size_t n_read = fread(transacoes.values, sizeof(Transacao), actual_count, file->file);
+        fs_seek_set(file, start);
+        size_t n_read = fs_read(file, transacoes.values, sizeof(Transacao) * actual_count);
 
         transacao_repo_clear_if_none(n_read, &transacoes);
         if (n_read > 0) {
             transacao_repo_reverse(transacoes);
         }
     }
-    // fclose(file);
     return transacoes;
 }
 
@@ -72,13 +78,11 @@ TransacaoList transacao_repo_find_all(uint32_t id_cliente) {
 
     sprintf(file_name, TRANSACAO_FILE_NAME_TEMPLATE, id_cliente);
 
-    // FILE *file = fopen(file_name, FS_READ);
-    FILE *file = fs_get_file(file_name)->file;
+    File *file = fs_get_file(file_name);
 
     fs_return_on_open_fail(file, file_name, transacoes);
-
-    fseek(file, 0, SEEK_END);
-    size_t size = ftell(file);    
+    
+    size_t size = fs_seek_end(file);
 
     int actual_count = size / sizeof(Transacao);
 
@@ -86,36 +90,44 @@ TransacaoList transacao_repo_find_all(uint32_t id_cliente) {
         transacoes.values = malloc(sizeof(Transacao) * actual_count);
         transacoes.size = actual_count;
 
-        fseek(file, 0, SEEK_SET);
-        size_t n_read = fread(transacoes.values, sizeof(Transacao), actual_count, file);
+        fs_seek_set(file, 0);
+        size_t n_read = fs_read(file, transacoes.values, sizeof(Transacao) * actual_count);
         transacao_repo_clear_if_none(n_read, &transacoes);
     }
-    // fclose(file);
     return transacoes;
 }
 
-bool transacao_repo_insert(Transacao *transacao, Cliente *cliente) {
+Cliente *transacao_repo_insert(Transacao *transacao) {
     char file_name[MAX_FILE_NAME];
-    sprintf(file_name, TRANSACAO_FILE_NAME_TEMPLATE, cliente->id);
+    sprintf(file_name, TRANSACAO_FILE_NAME_TEMPLATE, transacao->id_cliente);
 
-    if (transacao->tipo[0] == 'c') {
-        cliente->saldo += transacao->valor;
-    } else {
-        cliente->saldo -= transacao->valor;
-    }
-
-    cliente_repo_update(cliente);
-
-    // FILE *file = fopen(file_name, FS_APPEND);
-    FILE *file = fs_get_file(file_name)->file;
+    File *file = fs_get_file(file_name);
 
     fs_return_on_open_fail(file, file_name, false);
+    
+    fs_lock(file);
 
-    fwrite(transacao, sizeof(Transacao), 1, file);
-    fflush(file);
-    // fclose(file);
+    Cliente *cliente = cliente_repo_find_one(transacao->id_cliente);
 
-    return true;
+    if (!is_limite_excedido(cliente, transacao)) {
+        if (transacao->tipo[0] == 'c') {
+            cliente->saldo += transacao->valor;
+        } else {
+            cliente->saldo -= transacao->valor;
+        }
+
+        cliente_repo_update(cliente);    
+
+        fs_write(file, transacao, sizeof(Transacao));
+        fs_flush(file);
+    } else {
+        free(cliente);
+        cliente = NULL;
+    }
+
+    fs_unlock(file);
+
+    return cliente;
 }
 
 void transacao_repo_free_list(TransacaoList transacoes) {
@@ -130,12 +142,22 @@ void transacao_repo_init() {
     for (int i = 1; i <= 5; i++) {
         sprintf(file_name, TRANSACAO_FILE_NAME_TEMPLATE, i);
 
-        // FILE *file = fopen(file_name, FS_READ);
-        // if (file == NULL) {
-        //     file = fopen(file_name, FS_CREATE_READ_WRITE);
-        // }
-        // fclose(file);
-        File *file = fs_file_new(file_name, FS_READ_APPEND);
+        File *file = fs_mfile_new(file_name, FS_CREATE_RW_APPEND, TRANSACAO_MAX_PAGES * getpagesize());
+        if (file == NULL) {
+            log_fatal("Falha ao iniciar o repositório de transações");
+            exit(EXIT_FAILURE);
+        }
         fs_pool_add(file);
+    }
+}
+
+void transacao_repo_shared_mem_init() {
+    char file_name[MAX_FILE_NAME];
+
+    for (int i = 1; i <= 5; i++) {
+        sprintf(file_name, TRANSACAO_FILE_NAME_TEMPLATE, i);
+
+        File *file = fs_get_file(file_name);
+        fs_shared_mem_init(file, TRANSACAO_MAX_PAGES * getpagesize());
     }
 }
