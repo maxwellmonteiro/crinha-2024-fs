@@ -5,7 +5,7 @@
 
 #define TRANSACAO_FILE_NAME_TEMPLATE "/tmp/data/TRANSACAO_%d.dat"
 
-#define TRANSACAO_MAX_PAGES 1000
+#define TRANSACAO_MAX_PAGES 100
 
 extern TransacaoList transacao_repo_find_last_10(uint32_t cliente_id);
 extern TransacaoList transacao_repo_find_all(uint32_t id_cliente);

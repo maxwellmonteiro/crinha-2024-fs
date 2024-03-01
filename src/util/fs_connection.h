@@ -1,3 +1,5 @@
+ #define _GNU_SOURCE  
+
 #include <stdio.h>
 #include <stdbool.h>
 #include <fcntl.h>
@@ -69,5 +71,6 @@ extern int fs_flush(File *file);
 extern void fs_lock(File *file);
 extern void fs_unlock(File *file);
 extern void fs_shared_mem_init(File *file, size_t size);
+extern void fs_pool_sync();
 
 #endif

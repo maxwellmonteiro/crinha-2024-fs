@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
     cliente_service_shared_mem_init();
     transacao_service_shared_mem_init();
 
-    cliente_inserir_saldos();
+    cliente_service_inserir_saldos();
 
     cliente_controller_init();
 

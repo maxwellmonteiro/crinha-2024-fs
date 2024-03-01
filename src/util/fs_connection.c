@@ -31,12 +31,42 @@ FileArrayList *fs_array_list_new(size_t size) {
     return self;
 }
 
+static bool fs_is_reallocate_needed(File *file, size_t size) {
+    if (file->flags & O_APPEND) {
+        return file->mfile->size + size > file->max_size;
+    } 
+    return file->cursor + size > file->max_size;
+}
+
 static bool fs_was_reallocated(File *file) {
     return file->mfile->max_size > file->max_size;
 }
 
 static void fs_reallocate(File *file) {
-    posix_fallocate(file->fd, 0, file->mfile->max_size);
+    size_t old_size = file->mfile->max_size + sizeof(MFile);
+    size_t new_size = old_size * 2;
+    posix_fallocate(file->fd, 0, new_size);
+    file->mfile = mremap(file->mfile, old_size, new_size, MREMAP_MAYMOVE);
+
+    if (file->mfile == MAP_FAILED) {
+        log_fatal("Falha ao realocar arquivo compartilhado (%s)", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    file->file = ((char *) file->mfile) + sizeof(MFile);
+    file->mfile->max_size = new_size - sizeof(MFile);
+    file->max_size = file->mfile->max_size;
+}
+
+static void fs_remap(File *file) {
+    size_t new_size = file->mfile->max_size + sizeof(MFile);
+    file->mfile = mremap(file->mfile, file->max_size, new_size, MREMAP_MAYMOVE);
+
+    if (file->mfile == MAP_FAILED) {
+        log_fatal("Falha ao remapear memória compartilhada (%s)", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    file->file = ((char *) file->mfile) + sizeof(MFile);
+    file->max_size = file->mfile->max_size;
 }
 
 static void fs_map_file_to_memory(File *file, size_t size) {
@@ -50,6 +80,7 @@ static void fs_map_file_to_memory(File *file, size_t size) {
 
     file->file = ((char *) file->mfile) + sizeof(MFile);
     file->cursor = 0;
+    file->max_size = size - sizeof(MFile);
 }
 
 File *fs_file_new(char *name, int flags) {
@@ -91,7 +122,7 @@ File *fs_mfile_new(char *name, int flags, size_t size) {
 
 void fs_shared_mem_init(File *file, size_t size) {
     if (file != NULL && is_main_process()) {        
-        file->mfile->max_size = size - sizeof(MFile);
+        file->mfile->max_size = file->max_size;
         file->mfile->size = 0;
         file->mutex = sem_open(get_sem_name(file->name), O_CREAT, 0644, 1);
         if (file->mutex == NULL) {
@@ -172,6 +203,10 @@ File *fs_get_file(char *name) {
 }
 
 size_t fs_read(File *file, void *buffer, size_t size) {
+    if (fs_was_reallocated(file)) {
+        fs_remap(file);
+    }   
+
     if (file->cursor >= file->mfile->size) return 0;
 
     memcpy(buffer, file->file + file->cursor, size);
@@ -180,6 +215,13 @@ size_t fs_read(File *file, void *buffer, size_t size) {
 }
 
 size_t fs_write(File *file, void *buffer, size_t size) {
+    if (fs_was_reallocated(file)) {
+        fs_remap(file);
+    }
+    if (fs_is_reallocate_needed(file, size)) {
+        fs_reallocate(file);
+    }
+
     if (file->flags & O_APPEND) {
         memcpy(file->file + file->mfile->size, buffer, size);
         file->mfile->size += size;
@@ -217,5 +259,11 @@ void fs_lock(File *file) {
 void fs_unlock(File *file) {
     if (sem_post(&file->mfile->mutex_copy) < 0) {
         log_error("erro semaforo %s (%s)", file->name, strerror(errno));
+    }
+}
+
+void fs_pool_sync() {
+    for (int i = 0; i < pool->size; i++) {
+        msync(pool->values[i]->mfile, pool->values[i]->mfile->max_size, MS_SYNC);
     }
 }

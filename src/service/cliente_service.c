@@ -19,9 +19,9 @@ void cliente_service_shared_mem_init() {
     }
 }
 
-void cliente_inserir_saldos() {
+void cliente_service_inserir_saldos() {
     if (is_main_process()) {
-        // sleep(1);
+        usleep(100000);
         Cliente *cliente = malloc(sizeof(Cliente));
         int64_t limites[5] = {100000, 80000, 1000000, 10000000, 500000};
         for (int i = 1; i <= 5; i++) {
