@@ -12,6 +12,8 @@
 
 #define MAX_POOL_SIZE 10
 
+#define MODE 0666
+
 static FileArrayList *pool = NULL;
 
 static void push(FileArrayList *self, File *value);
@@ -84,7 +86,7 @@ static void fs_map_file_to_memory(File *file, size_t size) {
 }
 
 File *fs_file_new(char *name, int flags) {
-    int fd = open(name, flags);
+    int fd = open(name, flags, MODE);
     if (fd <= 0) { perror("erro"); return NULL; }
 
     if (is_main_process()) {
@@ -124,7 +126,7 @@ void fs_shared_mem_init(File *file, size_t size) {
     if (file != NULL && is_main_process()) {        
         file->mfile->max_size = file->max_size;
         file->mfile->size = 0;
-        file->mutex = sem_open(get_sem_name(file->name), O_CREAT, 0644, 1);
+        file->mutex = sem_open(get_sem_name(file->name), O_CREAT, MODE, 1);
         if (file->mutex == NULL) {
             log_fatal("Falha ao obter semaforo (%s)", strerror(errno));
             exit(EXIT_FAILURE);
@@ -246,8 +248,7 @@ size_t fs_seek_end(File *file) {
 }
 
 int fs_flush(File *file) {
-    // fsync(file->fd);
-    return 0;
+    return msync(file->mfile, file->max_size, MS_ASYNC);
 }
 
 void fs_lock(File *file) {
