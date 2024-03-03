@@ -5,7 +5,7 @@
 
 typedef struct Cliente {
     uint32_t id;
-    int64_t limite;
+    int32_t limite;
     int64_t saldo;
 } Cliente;
 

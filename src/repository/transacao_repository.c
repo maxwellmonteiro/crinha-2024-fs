@@ -97,6 +97,10 @@ TransacaoList transacao_repo_find_all(uint32_t id_cliente) {
     return transacoes;
 }
 
+int32_t get_id(File *file) {
+    return file->mfile->size / sizeof(Transacao) + 1; 
+}
+
 Cliente *transacao_repo_insert(Transacao *transacao) {
     char file_name[MAX_FILE_NAME];
     sprintf(file_name, TRANSACAO_FILE_NAME_TEMPLATE, transacao->id_cliente);
@@ -116,10 +120,11 @@ Cliente *transacao_repo_insert(Transacao *transacao) {
             cliente->saldo -= transacao->valor;
         }
 
-        cliente_repo_update(cliente);    
+        cliente_repo_update(cliente);
+        transacao->id = get_id(file);
 
         fs_write(file, transacao, sizeof(Transacao));
-        fs_flush(file);
+        fs_flush(file, sizeof(Transacao));
     } else {
         free(cliente);
         cliente = NULL;

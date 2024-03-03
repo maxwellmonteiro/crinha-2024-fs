@@ -10,8 +10,8 @@
 #ifndef FS_CONNECTION_H
 #define FS_CONNECTION_H
 
-#define FS_CREATE_RW (O_CREAT | O_TRUNC | O_RDWR)
-#define FS_CREATE_RW_APPEND (O_CREAT | O_TRUNC | O_RDWR | O_APPEND)
+#define FS_CREATE_RW (O_TRUNC | O_RDWR)
+#define FS_CREATE_RW_APPEND (O_TRUNC | O_RDWR | O_APPEND)
 
 #define MAX_FILE_NAME 64
 
@@ -67,10 +67,9 @@ extern size_t fs_read(File *file, void *buffer, size_t size);
 extern size_t fs_write(File *file, void *buffer, size_t size);
 extern size_t fs_seek_set(File *file, size_t offset);
 extern size_t fs_seek_end(File *file);
-extern int fs_flush(File *file);
+extern int fs_flush(File *file, size_t size);
 extern void fs_lock(File *file);
 extern void fs_unlock(File *file);
 extern void fs_shared_mem_init(File *file, size_t size);
-extern void fs_pool_sync();
 
 #endif

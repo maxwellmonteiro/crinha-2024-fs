@@ -39,7 +39,7 @@ void cliente_repo_update(Cliente *cliente) {
 
     fs_seek_set(file, 0);
     fs_write(file, cliente, sizeof(Cliente));
-    fs_flush(file);
+    fs_flush(file, sizeof(Cliente));
 
 }
 

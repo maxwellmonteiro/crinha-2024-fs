@@ -87,10 +87,13 @@ static void fs_map_file_to_memory(File *file, size_t size) {
 
 File *fs_file_new(char *name, int flags) {
     int fd = open(name, flags, MODE);
-    if (fd <= 0) { perror("erro"); return NULL; }
-
-    if (is_main_process()) {
-        fchmod(fd, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+    while (fd <= 0) {
+        if (is_main_process()) {
+            fd = open(name, O_CREAT | flags, MODE);
+        } else {
+            usleep(1000);
+            fd = open(name, flags, MODE);
+        }
     }
 
     File *file = malloc(sizeof(File));
@@ -134,6 +137,7 @@ void fs_shared_mem_init(File *file, size_t size) {
         // Containers sao isolados, logo nao enxergam o semaforo criado pelo outro container, por isso essa copia do semaforo para a memoria compartilhada
         // Em um ambiante não container, não precisaria disso pois o semaforo é a nível de Sistema Operacional
         memcpy(&file->mfile->mutex_copy, file->mutex, sizeof(sem_t));
+        msync(file->mfile, sizeof(MFile), MS_SYNC);
     }
 }
 
@@ -247,24 +251,15 @@ size_t fs_seek_end(File *file) {
     return file->cursor;
 }
 
-int fs_flush(File *file) {
-    return msync(file->mfile, file->max_size, MS_ASYNC);
+int fs_flush(File *file, size_t size) {
+    void *start_addr = ((char *) file->mfile) + (file->cursor - size);
+    return msync(start_addr, size, MS_ASYNC);
 }
 
 void fs_lock(File *file) {
-    if (sem_wait(&file->mfile->mutex_copy) < 0) {
-        log_error("erro semaforo %s (%s)", file->name, strerror(errno));
-    }
+    sem_wait(&file->mfile->mutex_copy);        
 }
 
 void fs_unlock(File *file) {
-    if (sem_post(&file->mfile->mutex_copy) < 0) {
-        log_error("erro semaforo %s (%s)", file->name, strerror(errno));
-    }
-}
-
-void fs_pool_sync() {
-    for (int i = 0; i < pool->size; i++) {
-        msync(pool->values[i]->mfile, pool->values[i]->mfile->max_size, MS_SYNC);
-    }
+    sem_post(&file->mfile->mutex_copy);
 }
