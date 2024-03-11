@@ -17,7 +17,7 @@ RUN ./configure && make && make install
 WORKDIR /usr/local/rinha
 
 RUN rm -f llhttp-8.1.1.tar.gz jansson-2.14.tar.gz
-RUN rm -rf ./llhttp ./jansson
+RUN rm -rf ./llhttp ./jansson-2.14
 RUN apt-get remove --purge -y nodejs npm
 
 COPY Makefile .

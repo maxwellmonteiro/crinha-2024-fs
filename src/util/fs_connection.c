@@ -119,8 +119,10 @@ char *get_sem_name(char *name) {
 File *fs_mfile_new(char *name, int flags, size_t size) {
     File *file = fs_file_new(name, flags);
 
-    if (file != NULL) {         
-        fs_map_file_to_memory(file, size); 
+    if (file != NULL) {        
+        size_t actual_size = lseek(file->fd, 0, SEEK_END);
+        size_t new_size = actual_size > size ?  actual_size : size;
+        fs_map_file_to_memory(file, new_size); 
     }
     return file;
 }

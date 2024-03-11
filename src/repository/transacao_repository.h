@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-#define TRANSACAO_FILE_NAME_TEMPLATE "/tmp/data/TRANSACAO_%d.dat"
+#define TRANSACAO_FILE_NAME_TEMPLATE "/usr/local/rinha/data/TRANSACAO_%d.dat"
 
 #define TRANSACAO_MAX_PAGES 10
 
